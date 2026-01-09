@@ -12,6 +12,7 @@ const COLORS = ['#6366f1', '#ec4899', '#10b981', '#f59e0b', '#8b5cf6', '#3b82f6'
 export default function Dashboard({ rawData }) {
     const [filterLine, setFilterLine] = useState('All');
     const [filterStatus, setFilterStatus] = useState('All');
+    const [filterCategory, setFilterCategory] = useState('All');
 
     // Aggregation
     const {
@@ -26,6 +27,7 @@ export default function Dashboard({ rawData }) {
         let data = rawData;
         if (filterLine !== 'All') data = data.filter(d => d.line === filterLine);
         if (filterStatus !== 'All') data = data.filter(d => d.status === filterStatus);
+        if (filterCategory !== 'All') data = data.filter(d => d.category === filterCategory);
 
         // Aggregates
         const lines = {};
@@ -56,7 +58,7 @@ export default function Dashboard({ rawData }) {
 
         const byLineArr = Object.entries(lines).map(([name, value]) => ({ name, value })).sort((a, b) => b.value - a.value);
         const byStatusArr = Object.entries(statuses).map(([name, value]) => ({ name, value })).sort((a, b) => b.value - a.value);
-        const byCategoryArr = Object.entries(categories).map(([name, value]) => ({ name, value })).sort((a, b) => b.value - a.value).slice(0, 5);
+        const byCategoryArr = Object.entries(categories).map(([name, value]) => ({ name, value })).sort((a, b) => b.value - a.value).slice(0, 10);
         const byDateArr = Object.entries(dates).map(([name, value]) => ({ name, value })).sort((a, b) => new Date(a.name) - new Date(b.name));
 
         const eff = data.length > 0 ? ((attended / data.length) * 100).toFixed(1) : 0;
@@ -70,11 +72,21 @@ export default function Dashboard({ rawData }) {
             byDate: byDateArr,
             efficiency: eff
         };
-    }, [rawData, filterLine, filterStatus]);
+    }, [rawData, filterLine, filterStatus, filterCategory]);
 
-    // Unique Lines for Filter
+    // Unique Filters
     const uniqueLines = useMemo(() => {
         const s = new Set(rawData.map(d => d.line).filter(Boolean));
+        return ['All', ...Array.from(s).sort()];
+    }, [rawData]);
+
+    const uniqueCategories = useMemo(() => {
+        const s = new Set(rawData.map(d => d.category).filter(Boolean));
+        return ['All', ...Array.from(s).sort()];
+    }, [rawData]);
+
+    const uniqueStatuses = useMemo(() => {
+        const s = new Set(rawData.map(d => d.status).filter(Boolean));
         return ['All', ...Array.from(s).sort()];
     }, [rawData]);
 
@@ -88,15 +100,40 @@ export default function Dashboard({ rawData }) {
                     </h1>
                     <p className="text-slate-400">Panel de Control de Incidencias y Reportes</p>
                 </div>
-                <div className="flex gap-4 mt-4 md:mt-0">
+                <div className="flex flex-wrap gap-4 mt-4 md:mt-0">
                     <div className="flex items-center gap-2 bg-slate-900 p-2 rounded-lg border border-slate-800">
                         <Filter size={16} className="text-slate-400" />
                         <select
-                            className="bg-transparent text-slate-200 outline-none text-sm"
+                            className="bg-transparent text-slate-200 outline-none text-sm cursor-pointer"
                             value={filterLine}
                             onChange={(e) => setFilterLine(e.target.value)}
                         >
-                            {uniqueLines.map(l => <option key={l} value={l}>Línea: {l}</option>)}
+                            <option value="All" className="bg-slate-900">Todas las Líneas</option>
+                            {uniqueLines.filter(l => l !== 'All').map(l => <option key={l} value={l} className="bg-slate-900">Línea: {l}</option>)}
+                        </select>
+                    </div>
+
+                    <div className="flex items-center gap-2 bg-slate-900 p-2 rounded-lg border border-slate-800">
+                        <Menu size={16} className="text-slate-400" />
+                        <select
+                            className="bg-transparent text-slate-200 outline-none text-sm cursor-pointer"
+                            value={filterCategory}
+                            onChange={(e) => setFilterCategory(e.target.value)}
+                        >
+                            <option value="All" className="bg-slate-900">Todas las Categorías</option>
+                            {uniqueCategories.filter(c => c !== 'All').map(c => <option key={c} value={c} className="bg-slate-900">{c}</option>)}
+                        </select>
+                    </div>
+
+                    <div className="flex items-center gap-2 bg-slate-900 p-2 rounded-lg border border-slate-800">
+                        <CheckCircle size={16} className="text-slate-400" />
+                        <select
+                            className="bg-transparent text-slate-200 outline-none text-sm cursor-pointer"
+                            value={filterStatus}
+                            onChange={(e) => setFilterStatus(e.target.value)}
+                        >
+                            <option value="All" className="bg-slate-900">Todos los Estados</option>
+                            {uniqueStatuses.filter(s => s !== 'All').map(s => <option key={s} value={s} className="bg-slate-900">{s}</option>)}
                         </select>
                     </div>
                 </div>
@@ -106,7 +143,22 @@ export default function Dashboard({ rawData }) {
             <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
                 <KpiCard title="Total Reportes" value={totalIncidents} icon={Activity} color="text-blue-500" />
                 <KpiCard title="Eficiencia" value={`${efficiency}%`} sub="Casos Atendidos" icon={CheckCircle} color="text-emerald-500" />
-                <KpiCard title="Categoría Principal" value={byCategory[0]?.name || '-'} sub={`${byCategory[0]?.value || 0} reportes`} icon={Menu} color="text-purple-500" />
+                <KpiCard
+                    title="Categoría Principal"
+                    value={byCategory[0]?.name || '-'}
+                    sub={
+                        <span className="flex flex-col">
+                            <span>{byCategory[0]?.value || 0} reportes</span>
+                            {byCategory.length > 1 && (
+                                <span className="text-[10px] text-slate-500 mt-1 block leading-tight">
+                                    Seguida por: {byCategory.slice(1, 3).map(c => c.name).join(', ')}
+                                </span>
+                            )}
+                        </span>
+                    }
+                    icon={Menu}
+                    color="text-purple-500"
+                />
                 <KpiCard title="Registros Hoy" value={byDate[byDate.length - 1]?.value || 0} icon={Calendar} color="text-emerald-500" />
             </div>
 
@@ -177,7 +229,7 @@ export default function Dashboard({ rawData }) {
                     </div>
                 </ChartCard>
 
-                <ChartCard title="Top 5 Categorías" className="lg:col-span-2">
+                <ChartCard title="Distribución por Categoría (Top 10)" className="lg:col-span-2">
                     <ResponsiveContainer width="100%" height={300}>
                         <BarChart data={byCategory}>
                             <CartesianGrid strokeDasharray="3 3" stroke="#334155" vertical={false} />
